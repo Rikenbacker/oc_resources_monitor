@@ -1,0 +1,49 @@
+comp = require("component")
+event = require("event")
+screen = require("term")
+modem = comp.modem 
+clientPort = 5556
+
+controllersFile = "config\\controllers.cfg"
+
+modem.open(clientPort)
+
+dofile("ControllerConfig.lua")
+dofile("ControllerData.lua")
+
+cfg = readControllersConfig()
+
+    if screen then
+        print("ready to work")
+    end
+
+while (true) do
+    local _, _, from, _, _, message = event.pull("modem_message")
+
+    if screen then
+        print("request: "  .. from .. ", " .. tostring(message))
+    end
+
+    if (message == "status") then
+        os.sleep(0.1)
+        modem.send(from, clientPort, "ok")
+        if screen then
+	        print("status")
+        end
+    end
+
+    if (message == "data") then
+		local controllersStr = serializeControllers(scanControllers(cfg))
+  		modem.send(from, clientPort, controllersStr)
+        if screen then
+            print(controllersStr)
+        end
+    end
+
+    os.sleep(0.1)
+    if screen then
+        if event.pull(.5, "interrupted") then
+            break
+        end
+    end
+end
