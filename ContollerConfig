@@ -1,0 +1,46 @@
+ControllerConfig = {}
+ 
+function ControllerConfig:new(parseStr)
+    local key, name, needEnabledStr, disableByPowerStr = string.match(parseStr, "^([^|]+)|([^|]+)|([^|]+)|([^|]+)$")  
+    local needEnabled = true
+    local disableByPower = false
+
+    if (needEnabledStr == "false") then
+        needEnabled = false
+    end
+    if (disableByPowerStr == "true") then
+        disableByPower = true
+    end
+
+    -- свойства
+    local obj= {}
+        obj.key = key
+        obj.name = name
+        obj.needEnabled = needEnabled
+		obj.disableByPower = disableByPower
+ 
+    -- метод
+    function obj:getName()
+        return self.name
+    end
+ 
+    --чистая магия!
+    setmetatable(obj, self)
+    self.__index = self; return obj
+end
+ 
+function readControllersConfig()
+    local controllersConfigArray = {}
+    local f=io.open(controllersFile,"r")
+    if f~=nil then 
+         io.close(f) 
+     else
+         return controllersConfigArray
+     end
+
+    for line in io.lines(controllersFile) do
+        controllersConfigArray[#controllersConfigArray + 1] = ControllerConfig:new(line)
+    end
+   
+    return controllersConfigArray
+end
