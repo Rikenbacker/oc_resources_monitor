@@ -1,0 +1,126 @@
+ControllerData = {}
+
+function ControllerData:new(name, needMaintaince, isEnabled, needEnabled)
+    -- свойства
+    local obj= {}
+        obj.name = name
+		obj.needMaintaince = needMaintaince
+        obj.isEnabled = isEnabled
+		obj.needEnabled = needEnabled
+
+    -- метод
+    function obj:getName()
+        return self.name 
+    end
+ 
+    function obj:hasError()
+        if self.needMaintaince then
+            return true
+        end
+        if not self.isEnabled and self.needEnabled then 
+            return true
+        end
+
+        return false 
+    end
+
+    function obj:hasMaintinceError()
+        if self.needMaintaince then
+            return true
+        end
+        return false 
+    end
+
+    function obj:hasEnabledError()
+        if not self.isEnabled and self.needEnabled then 
+            return true
+        end
+        return false 
+    end
+
+    function obj:serialize()
+        local nMStr = 0
+        local iEStr = 0
+        local nEStr = 0
+
+        if self.needMaintaince then
+            nMStr = 1
+        end 
+
+        if self.isEnabled then
+            iEStr = 1
+        end 
+
+        if self.needEnabled then
+            nEStr = 1
+        end 
+
+        return self.name .. "|" .. nMStr .. "|" .. iEStr .. "|" .. nEStr .. "@"
+    end
+
+    --чистая магия!
+    setmetatable(obj, self)
+    self.__index = self; return obj
+end
+
+function scanControllers(controllersConfigArray)
+	local controllers = {}
+
+    for i = 1, #controllersConfigArray do
+        local machine = comp.proxy(comp.get(controllersConfigArray[i].key))
+        local needMaintaince = false
+
+        for strNumber = 1, #machine.getSensorInformation() do
+            if string.match(machine.getSensorInformation()[strNumber], "^Problems:") then
+                if not string.match(machine.getSensorInformation()[strNumber], "^Problems: §c0§r Efficiency") then
+                    needMaintaince = true
+                 end
+            end
+
+            if string.match(machine.getSensorInformation()[strNumber], "§cNeeds Maintainance§r") then
+                needMaintaince = true
+            end
+		end
+
+		controllers[#controllers + 1] = ControllerData:new(controllersConfigArray[i].name, needMaintaince, machine.isWorkAllowed(), controllersConfigArray[i].needEnabled)
+    end
+	
+	return controllers
+end
+
+function serializeControllers(controllers)
+    local result = ""
+    for i = 1, #controllers do
+        result = result .. controllers[i]:serialize()
+    end
+
+    return result
+end
+
+function unserializeControllers(str)
+    local controllers = {}
+
+    for parseController in string.gmatch(str, "([^@]+)@") do
+        local nM = true
+        local iE = true
+        local nE = true
+
+        local name, nMStr, iEStr, nEStr = string.match(parseController, "^([^|]+)|([^|]+)|([^|]+)|([^|]+)$")  
+
+        if nMStr == "0" then
+            nM = false
+        end
+
+        if iEStr == "0" then
+            iE = false
+        end
+
+        if nEStr == "0" then
+            nE = false
+        end
+
+        controllers[#controllers + 1] = ControllerData:new(name, nM, iE, nE)
+    end
+
+    return controllers
+end
