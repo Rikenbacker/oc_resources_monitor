@@ -803,6 +803,13 @@ function Main()
       end
     end
 
+    local summary = {
+      stored = 0,
+      capacity = 0,
+      input = 0,
+      output = 0
+    }
+    
     for _, battery in ipairs(values.batteries) do
       battery.percent = battery.stored / battery.capacity * 100
       battery.charge = battery.input - battery.output
@@ -815,10 +822,17 @@ function Main()
         battery.left = 0
       end
       battery.left = math.floor(battery.left / 20)
+      
+      summary.stored = summary.stored + battery.stored
+      summary.capacity = summary.capacity + battery.capacity
+      summary.input = summary.input + battery.input
+      summary.output = summary.output + battery.output
     end
 
     screen.render(values)
 
+    local outStr = "Summary" .. "|" .. summary.stored .. "|" .. summary.capacity .. "|" .. summary.input .. "|" .. summary.output .. "@"
+    
     lastUptime = currentUptime
   until event.pull(settings.screenRefreshInterval, "interrupted")
   screen.resetScreen()
