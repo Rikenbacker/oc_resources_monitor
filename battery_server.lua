@@ -98,6 +98,8 @@ local computer = require("computer")
 local component = require("component")
 local thread = require("thread")
 local gpu = component.gpu
+local modem = component.modem 
+clientPort = 5556
 
 function split(string, delimiter)
   local splitted = {}
@@ -823,8 +825,19 @@ function Main()
 
     screen.render(values)
 
-    
     lastUptime = currentUptime
+    
+    local _, _, from, _, _, message = event.pull("modem_message")
+    
+    if (message == "status") then
+        os.sleep(0.1)
+        modem.send(from, clientPort, "ok")
+    end
+
+    if (message == "data") then
+    		modem.send(from, clientPort, outStr)
+    end  
+  
   until event.pull(settings.screenRefreshInterval, "interrupted")
   screen.resetScreen()
 end
