@@ -370,6 +370,39 @@ function GenericGTBlock.new(proxy, name)
 end
 
 ----------------------------------------------------------------------
+BatBuffer = {}
+function BatBuffer.new(proxy, name)
+  local obj = GenericGTBlock.new(proxy, name)
+
+  local config = {
+    -- "§a1 199 934§r EU / §e1 232 768§r EU"
+    STORED = {line = 3, pattern = "§.(.+)§.+/.+$"},
+    CAPACITY = {line = 3, pattern = "^.+/.+§.(.+)§.+$"},
+    -- "32 768 EU/t"
+    INPUT = {line = 5, pattern = "^(.+)%sEU/t$"},
+    OUTPUT = {line = 7, pattern = "^(.+)%sEU/t$"}
+  }
+
+  function obj.runMonitoring()
+    while true do
+      obj.inputHistory.push(obj.proxy.getSensorValue(config.INPUT))
+      obj.outputHistory.push(obj.proxy.getSensorValue(config.OUTPUT))
+      os.sleep(settings.batteryPollInterval)
+    end
+  end
+
+  function obj.getStored()
+    return obj.proxy.getSensorValue(config.STORED)
+  end
+
+  function obj.getCapacity()
+    return obj.proxy.getSensorValue(config.CAPACITY)
+  end
+
+  return obj
+end
+
+----------------------------------------------------------------------
 Substation = {}
 function Substation.new(proxy, name)
   local obj = GenericGTBlock.new(proxy, name)
@@ -392,7 +425,7 @@ function Substation.new(proxy, name)
       local currentTotalOutput = obj.proxy.getSensorValue(config.TOTAL_OUTPUT)
       local currentTotalCosts = obj.proxy.getSensorValue(config.TOTAL_COSTS)
 
-      local currentInput = (currentTotalInput - lastTotalInput) / (settings.batteryPollInterval * 20)
+      local currentInput = currentTotalInput
       local currentOutput =
         (currentTotalOutput + currentTotalCosts - lastTotalOutput) / (settings.batteryPollInterval * 20)
 
@@ -418,6 +451,57 @@ function Substation.new(proxy, name)
   return obj
 end
 
+----------------------------------------------------------------------
+LESU = {}
+function LESU.new(proxy, name)
+  local obj = GenericGTBlock.new(proxy, name)
+
+  local baseGetCapacity = obj.getCapacity
+  function obj.getCapacity()
+    return baseGetCapacity() / 2
+  end
+
+  return obj
+end
+
+----------------------------------------------------------------------
+MFSU = {}
+function MFSU.new(proxy, name)
+  local obj = GenericGTBlock.new(proxy, name)
+  local lastStored
+
+  function obj.runMonitoring()
+    while true do
+      local currentStored = obj.proxy.getStored()
+
+      if lastStored then
+        if currentStored > lastStored then
+          obj.inputHistory.push((currentStored - lastStored) / (settings.batteryPollInterval * 20))
+          obj.outputHistory.push(0)
+        elseif currentStored < lastStored then
+          obj.inputHistory.push(0)
+          obj.outputHistory.push((lastStored - currentStored) / (settings.batteryPollInterval * 20))
+        else
+          obj.inputHistory.push(0)
+          obj.outputHistory.push(0)
+        end
+      end
+
+      lastStored = currentStored
+      os.sleep(settings.batteryPollInterval)
+    end
+  end
+
+  function obj.getStored()
+    return obj.proxy.getStored()
+  end
+
+  function obj.getCapacity()
+    return obj.proxy.getCapacity()
+  end
+
+  return obj
+end
 
 ----------------------------------------------------------------------
 ScreenController = {}
@@ -633,7 +717,19 @@ function Main()
       if string.find(info[1], "substation") then
         batteries[i] = Substation.new(proxy, GetName(address, "PSS"))
         i = i + 1
+      elseif string.find(info[1], "Progress") then
+        batteries[i] = LESU.new(proxy, GetName(address, "L.E.S.U."))
+        i = i + 1
+      elseif string.find(info[1], "Operational Data") then
+        batteries[i] = GenericGTBlock.new(proxy, GetName(address, "Lapatronic"))
+        i = i + 1
       end
+    elseif type == "gt_batterybuffer" then
+      batteries[i] = BatBuffer.new(proxy, GetName(address, "BBuffer"))
+      i = i + 1
+    elseif type == "mfsu" then
+      batteries[i] = MFSU.new(proxy, GetName(address, "MFSU"))
+      i = i + 1
     end
   end
 
