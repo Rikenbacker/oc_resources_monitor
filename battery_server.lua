@@ -20,8 +20,8 @@ local settings = {
   screenRefreshInterval = 0.2, -- In seconds. Supports values down to 0.05.
   batteryPollInterval = 1, -- In seconds. Doesn't make sense to set lower than 1.
   listSize = 20, -- The size of the historical data. 20 * 1(batteryPollInterval) = 20 seconds of history.
-  useMedian = false, -- If enabled script will use median instead of average to calculate In/Out.
-  displayMode = displayMods.Grid, -- See mods description.
+  useMedian = true, -- If enabled script will use median instead of average to calculate In/Out.
+  displayMode = displayMods.Summary, -- See mods description.
   toggleInterval = 5, -- Interval in seconds to toggle between batteries in Cycle mode. Supports only integer values.
   debug = false -- Enable Debug mode
 }
@@ -100,6 +100,8 @@ local thread = require("thread")
 local gpu = component.gpu
 local modem = component.modem 
 clientPort = 5556
+
+modem.open(clientPort)
 
 function split(string, delimiter)
   local splitted = {}
@@ -428,8 +430,7 @@ function Substation.new(proxy, name)
       local currentTotalCosts = obj.proxy.getSensorValue(config.TOTAL_COSTS)
 
       local currentInput = currentTotalInput
-      local currentOutput =
-        (currentTotalOutput + currentTotalCosts - lastTotalOutput) / (settings.batteryPollInterval * 20)
+      local currentOutput = currentTotalOutput
 
       if lastTotalInput ~= 0 then
         obj.inputHistory.push(currentInput)
