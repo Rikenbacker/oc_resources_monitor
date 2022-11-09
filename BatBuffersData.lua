@@ -77,3 +77,14 @@ function getBatAlarm(buffers)
 
 	return batAlarmModeGreen
 end
+
+function unserializeBattareis(str)
+    local batts = {}
+
+    for parseBatt in string.gmatch(str, "([^@]+)@") do
+        local name, nStored, nCapacity, nIn, nOut, nPercent, nCharge, nLeft = string.match(parseBatt, "^([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]+)$")  
+        batts[#batts + 1] = BatBuffersData:new(nStored, nCapacity, nIn, nOut)
+    end
+
+    return batts
+end
