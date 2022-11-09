@@ -7,22 +7,60 @@ cyanColor = 0x00FFFF
 backgroubdError = 0xFF0000
 backgroubdOK = 0x00FF00
 
--- Формат чисел XXX XXX XXX
-function splitNumber(number)
-    local formattedNumber = {}
-    local string = tostring(math.abs(number))
-    local sign = number / math.abs(number)
-    for i = 1, #string do
-        n = string:sub(i, i)
-        formattedNumber[i] = n
-        if ((#string - i) % 3 == 0) and (#string - i > 0) then
-            formattedNumber[i] = formattedNumber[i] .. " "
+local formatters = {
+  s = function(value, format)
+    format = (format and format or "%.2f")
+
+    return string.format(format, value)
+  end,
+  si = function(value, unit, format)
+    format = (format and format or "%.2f")
+    local incPrefixes = {"k", "M", "G", "T", "P", "E", "Z", "Y"}
+    local decPrefixes = {"m", "μ", "n", "p", "f", "a", "z", "y"}
+
+    local prefix = ""
+    local scaled = value
+
+    if value ~= 0 then
+      local degree = math.floor(math.log(math.abs(value), 10) / 3)
+      scaled = value * 1000 ^ -degree
+      if degree > 0 then
+        prefix = incPrefixes[degree]
+      elseif degree < 0 then
+        prefix = decPrefixes[-degree]
+      end
+    end
+
+    return string.format(format, scaled) .. " " .. prefix .. (unit and unit or "")
+  end,
+  t = function(secs, parts)
+    parts = (parts and parts or 4)
+
+    local units = {"d", "hr", "min", "sec"}
+    local result = {}
+    for i, v in ipairs({86400, 3600, 60}) do
+      if secs >= v then
+        result[i] = math.floor(secs / v)
+        secs = secs % v
+      end
+    end
+    result[4] = secs
+
+    local resultString = ""
+    local i = 1
+    while parts ~= 0 and i ~= 5 do
+      if result[i] and result[i] > 0 then
+        if i > 1 then
+          resultString = resultString .. " "
         end
+        resultString = resultString .. result[i] .. " " .. units[i]
+        parts = parts - 1
+      end
+      i = i + 1
     end
-    if (sign < 0) then table.insert(formattedNumber, 1, "-")
-    end
-    return table.concat(formattedNumber, "")
-end
+    return resultString
+  end
+}
 
 -- Вывод боксов
 function box(x, y, w, h, color, backgroundColor)
@@ -151,10 +189,10 @@ function writeBatBuffers(x, y, batBuffers, battAlarm)
 
     write(x + 3, y, "Батарейки", whiteColor)
     progressBar(x + 1, y + 1, 74, 3, stored / max, progressColor, backgroundColor)
-    local storedStr = splitNumber(stored)
-    local maxStr = splitNumber(max)
-    local averageInStr = "+ " .. splitNumber(averageIn)
-    local averageOutStr = "- " .. splitNumber(averageOut)
+    local storedStr = formatters["si"](stored, "EU")
+    local maxStr = formatters["si"](max, "EU")
+	local averageInStr = "+ " .. formatters["si"](averageIn, "EU/t")
+    local averageOutStr = "- " .. formatters["si"](averageOut, "EU/t")
     
     write(x + 3, y + 1, averageInStr, whiteColor)
 
